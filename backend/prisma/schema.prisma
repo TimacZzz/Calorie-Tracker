@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Sex {
+  MALE
+  FEMALE
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum Goal {
+  LOSE
+  MAINTAIN
+  GAIN
+}
+
+enum MealType {
+  BREAKFAST
+  MORNING_SNACK
+  LUNCH
+  AFTERNOON_SNACK
+  DINNER
+  NIGHT_SNACK
+}
+
+enum FoodSource {
+  SR_LEGACY
+  FNDDS
+  CUSTOM
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  profile Profile?
+  foods   Food[]
+  entries LogEntry[]
+  weights Weight[]
+
+  @@map("users")
+}
+
+model Profile {
+  userId         Int           @id @map("user_id")
+  sex            Sex
+  birthDate      DateTime      @map("birth_date") @db.Date
+  heightCm       Decimal       @map("height_cm") @db.Decimal(5, 1)
+  weightKg       Decimal       @map("weight_kg") @db.Decimal(5, 2)
+  activityLevel  ActivityLevel @map("activity_level")
+  goal           Goal
+  calorieTarget  Int           @map("calorie_target")
+  proteinTargetG Int           @map("protein_target_g")
+  carbsTargetG   Int           @map("carbs_target_g")
+  fatTargetG     Int           @map("fat_target_g")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// All nutrition values are per 100g.
+model Food {
+  id          Int        @id @default(autoincrement())
+  fdcId       Int?       @unique @map("fdc_id")
+  userId      Int?       @map("user_id")
+  description String
+  source      FoodSource
+  calories    Decimal    @db.Decimal(8, 2)
+  proteinG    Decimal    @map("protein_g") @db.Decimal(8, 2)
+  fatG        Decimal    @map("fat_g") @db.Decimal(8, 2)
+  carbsG      Decimal    @map("carbs_g") @db.Decimal(8, 2)
+  fiberG      Decimal?   @map("fiber_g") @db.Decimal(8, 2)
+  sugarG      Decimal?   @map("sugar_g") @db.Decimal(8, 2)
+  sodiumMg    Decimal?   @map("sodium_mg") @db.Decimal(8, 2)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  servings FoodServing[]
+  entries  LogEntry[]
+
+  @@index([userId])
+  @@map("foods")
+}
+
+model FoodServing {
+  id            Int     @id @default(autoincrement())
+  foodId        Int     @map("food_id")
+  usdaPortionId Int?    @unique @map("usda_portion_id")
+  description   String
+  gramWeight    Decimal @map("gram_weight") @db.Decimal(8, 2)
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  entries  LogEntry[]
+
+  @@index([foodId])
+  @@map("food_servings")
+}
+
+// If servingId is null, quantity is in grams.
+// If servingId is set, quantity is a count of that serving.
+model LogEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  foodId    Int      @map("food_id")
+  servingId Int?     @map("serving_id")
+  quantity  Decimal  @db.Decimal(8, 2)
+  mealType  MealType @map("meal_type")
+  loggedOn  DateTime @map("logged_on") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food    Food         @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  serving FoodServing? @relation(fields: [servingId], references: [id], onDelete: SetNull)
+
+  @@index([userId, loggedOn])
+  @@map("log_entries")
+}
+
+model Weight {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  weightKg  Decimal  @map("weight_kg") @db.Decimal(5, 2)
+  loggedOn  DateTime @map("logged_on") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, loggedOn])
+  @@map("weights")
+}
