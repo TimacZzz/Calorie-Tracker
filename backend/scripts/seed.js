@@ -1,8 +1,14 @@
 /**
- * Day 3 — USDA seed script, part 1: nutrients
+ * USDA seed script — foods and servings
  *
- * Reads food.csv into memory, streams food_nutrient.csv, flattens the nutrients
- * we care about into columns, and writes to the foods table.
+ * Phase 1  food.csv into memory
+ * Phase 2  stream food_nutrient.csv, attach the nutrients we want
+ * Phase 3  flatten to rows, resolve energy, drop and count
+ * Phase 4  upsert foods on fdc_id
+ * Phase 5  stream food_portion.csv, upsert food_servings on usda_portion_id
+ *
+ * Idempotent: both writes are INSERT ... ON CONFLICT DO UPDATE, so re-running
+ * updates in place rather than duplicating or skipping.
  *
  * Usage (from backend/):
  *   node scripts/seed.js --dir=data/sr_legacy --dry-run
@@ -14,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse";
-import { prisma } from "../src/db/prisma.js";
+import { prisma, Prisma } from "../src/db/prisma.js";
 
 // ESM has no __dirname — see DECISIONS.md 2026-08-31
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,7 +65,7 @@ if (!dirArg) {
 
 const DATA_DIR = path.resolve(BACKEND_ROOT, dirArg.slice("--dir=".length));
 
-for (const f of ["food.csv", "food_nutrient.csv"]) {
+for (const f of ["food.csv", "food_nutrient.csv", "food_portion.csv"]) {
   const p = path.join(DATA_DIR, f);
   if (!fs.existsSync(p)) {
     console.error(`Not found: ${p}`);
@@ -67,16 +73,17 @@ for (const f of ["food.csv", "food_nutrient.csv"]) {
   }
 }
 
+const csvStream = (file) =>
+  fs
+    .createReadStream(path.join(DATA_DIR, file))
+    .pipe(parse({ columns: true, skip_empty_lines: true, bom: true }));
+
 // --- phase 1: food.csv into memory ---------------------------------------
 async function loadFoods() {
   const foods = new Map(); // fdc_id -> { fdcId, description, source, nutrients }
   const skippedDataTypes = new Map();
 
-  const stream = fs
-    .createReadStream(path.join(DATA_DIR, "food.csv"))
-    .pipe(parse({ columns: true, skip_empty_lines: true, bom: true }));
-
-  for await (const row of stream) {
+  for await (const row of csvStream("food.csv")) {
     const source = DATA_TYPE_TO_SOURCE[row.data_type];
     if (!source) {
       skippedDataTypes.set(
@@ -102,11 +109,7 @@ async function attachNutrients(foods) {
   let rowsKept = 0;
   let unmatchedFdcIds = 0;
 
-  const stream = fs
-    .createReadStream(path.join(DATA_DIR, "food_nutrient.csv"))
-    .pipe(parse({ columns: true, skip_empty_lines: true, bom: true }));
-
-  for await (const row of stream) {
+  for await (const row of csvStream("food_nutrient.csv")) {
     rowsRead++;
 
     const key = ID_TO_KEY.get(row.nutrient_id);
@@ -194,27 +197,174 @@ function buildRows(foods) {
   return { rows, energyTiers, dropped };
 }
 
-// --- phase 4: write ------------------------------------------------------
-async function write(rows) {
-  // createMany for the first pass. Day 4 replaces this with an upsert on
-  // fdcId so re-running updates rather than skips.
+// --- phase 4: write foods ------------------------------------------------
+// Prisma has no upsertMany, and per-row upsert is one round trip each, so this
+// is a chunked INSERT ... ON CONFLICT. user_id is deliberately absent from both
+// the column list and the UPDATE set: a re-run must never touch a custom food.
+async function writeFoods(rows) {
   const CHUNK = 1000;
-  let written = 0;
+  let affected = 0;
 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
-    const result = await prisma.food.createMany({
-      data: chunk,
-      skipDuplicates: true,
-    });
-    written += result.count;
+
+    const values = chunk.map(
+      (r) => Prisma.sql`(
+        ${r.fdcId}, ${r.description}, ${r.source}::"FoodSource",
+        ${r.calories}, ${r.proteinG}, ${r.fatG}, ${r.carbsG},
+        ${r.fiberG}, ${r.sugarG}, ${r.sodiumMg}
+      )`
+    );
+
+    affected += await prisma.$executeRaw`
+      INSERT INTO foods (
+        fdc_id, description, source,
+        calories, protein_g, fat_g, carbs_g,
+        fiber_g, sugar_g, sodium_mg
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT (fdc_id) DO UPDATE SET
+        description = EXCLUDED.description,
+        source      = EXCLUDED.source,
+        calories    = EXCLUDED.calories,
+        protein_g   = EXCLUDED.protein_g,
+        fat_g       = EXCLUDED.fat_g,
+        carbs_g     = EXCLUDED.carbs_g,
+        fiber_g     = EXCLUDED.fiber_g,
+        sugar_g     = EXCLUDED.sugar_g,
+        sodium_mg   = EXCLUDED.sodium_mg
+    `;
+
     process.stdout.write(
-      `  ...${written.toLocaleString()} / ${rows.length.toLocaleString()} written\r`
+      `  ...${affected.toLocaleString()} / ${rows.length.toLocaleString()}\r`
     );
   }
 
   process.stdout.write(" ".repeat(50) + "\r");
-  return written;
+  return affected;
+}
+
+// --- phase 5: portions ---------------------------------------------------
+// The two datasets carry the label in different columns, with no overlap:
+//   SR Legacy  amount + modifier;  portion_description empty on all 14,449 rows
+//   FNDDS      portion_description on all 22,046 rows;  amount always empty,
+//              modifier holds an internal numeric code (10205, 90000...)
+// So the row itself is the signal — no dataset flag needed.
+//
+// gram_weight is the weight of the WHOLE portion ("4 oz" -> 113g), not of one
+// unit, so it is stored as given and never divided by amount.
+const QNS = "Quantity not specified";
+const GUIDELINE = "Guideline amount";
+
+function buildServingDescription(row) {
+  const pd = (row.portion_description ?? "").trim();
+  if (pd) return pd; // FNDDS — already includes the quantity
+
+  const mod = (row.modifier ?? "").trim();
+  if (!mod) return null; // no label text at all
+
+  // SR Legacy carries the quantity separately. A blank amount is not assumed
+  // to be 1: the gram weight describes the portion as stated, and if the
+  // quantity is missing there is no way to know what that weight is a weight of.
+  const rawAmount = (row.amount ?? "").trim();
+  if (!rawAmount) return null;
+
+  const amt = Number(rawAmount);
+  if (!Number.isFinite(amt) || amt <= 0) return null;
+
+  // Always prefixed, including when amount is 1, so SR Legacy and FNDDS
+  // servings read the same way in the dropdown.
+  return `${amt.toString()} ${mod}`;
+}
+
+async function loadFoodIdMap() {
+  const foods = await prisma.food.findMany({
+    where: { fdcId: { not: null } },
+    select: { id: true, fdcId: true },
+  });
+  return new Map(foods.map((f) => [f.fdcId, f.id]));
+}
+
+async function buildServingRows(foodIdMap) {
+  const rows = [];
+  const dropped = { qns: 0, badWeight: 0, orphan: 0, noLabel: 0, guideline: 0 };
+  let rowsRead = 0;
+
+  for await (const row of csvStream("food_portion.csv")) {
+    rowsRead++;
+
+    // QNS is checked first: one of those rows also carries a zero weight and
+    // would otherwise land in the wrong bucket.
+    if ((row.portion_description ?? "").trim().startsWith(QNS)) {
+      dropped.qns++;
+      continue;
+    }
+
+    // FNDDS survey coefficients — rates rather than portions ("Guideline
+    // amount per fl oz of beverage", 2.5g). 313 rows; the 18 foods left
+    // grams-only are recipe components like "Lettuce, for use on a sandwich".
+    if ((row.portion_description ?? "").trim().startsWith(GUIDELINE)) {
+      dropped.guideline++;
+      continue;
+    }
+
+    const grams = Number(row.gram_weight);
+    if (!Number.isFinite(grams) || grams <= 0) {
+      dropped.badWeight++;
+      continue;
+    }
+
+    const foodId = foodIdMap.get(Number(row.fdc_id));
+    if (foodId === undefined) {
+      dropped.orphan++;
+      continue;
+    }
+
+    const description = buildServingDescription(row);
+    if (!description) {
+      dropped.noLabel++;
+      continue;
+    }
+
+    rows.push({
+      foodId,
+      usdaPortionId: Number(row.id),
+      description,
+      gramWeight: round2(grams),
+    });
+  }
+
+  return { rows, dropped, rowsRead };
+}
+
+async function writeServings(rows) {
+  const CHUNK = 1000;
+  let affected = 0;
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+
+    const values = chunk.map(
+      (r) =>
+        Prisma.sql`(${r.foodId}, ${r.usdaPortionId}, ${r.description}, ${r.gramWeight})`
+    );
+
+    affected += await prisma.$executeRaw`
+      INSERT INTO food_servings (food_id, usda_portion_id, description, gram_weight)
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT (usda_portion_id) DO UPDATE SET
+        food_id     = EXCLUDED.food_id,
+        description = EXCLUDED.description,
+        gram_weight = EXCLUDED.gram_weight
+    `;
+
+    process.stdout.write(
+      `  ...${affected.toLocaleString()} / ${rows.length.toLocaleString()}\r`
+    );
+  }
+
+  process.stdout.write(" ".repeat(50) + "\r");
+  return affected;
 }
 
 // --- main ----------------------------------------------------------------
@@ -267,16 +417,48 @@ async function main() {
   console.table(rows.slice(0, 5));
 
   if (DRY_RUN) {
-    console.log("\nDry run — nothing written.\n");
+    console.log("\nDry run — nothing written. Portions need the written foods");
+    console.log("to resolve against, so phase 5 is skipped entirely.\n");
     return;
   }
 
-  console.log("\nPhase 4: write");
-  const written = await write(rows);
-  console.log(`  ${written.toLocaleString()} rows inserted`);
+  console.log("\nPhase 4: write foods");
+  const foodsAffected = await writeFoods(rows);
+  console.log(`  ${foodsAffected.toLocaleString()} rows inserted or updated`);
 
-  const total = await prisma.food.count();
-  console.log(`  foods table now holds ${total.toLocaleString()} rows`);
+  console.log("\nPhase 5: food_portion.csv");
+  const foodIdMap = await loadFoodIdMap();
+  console.log(
+    `  ${foodIdMap.size.toLocaleString()} seeded foods available to match against`
+  );
+
+  const {
+    rows: servingRows,
+    dropped: sDropped,
+    rowsRead: portionRowsRead,
+  } = await buildServingRows(foodIdMap);
+
+  console.log(`  ${portionRowsRead.toLocaleString()} portion rows read`);
+  console.log(`  ${servingRows.length.toLocaleString()} ready`);
+  console.log(`  ${sDropped.qns.toLocaleString()} dropped — "${QNS}"`);
+  console.log(`  ${sDropped.guideline.toLocaleString()} dropped — "${GUIDELINE}..." coefficients`);
+  console.log(
+    `  ${sDropped.badWeight.toLocaleString()} dropped — zero or bad gram weight`
+  );
+  console.log(`  ${sDropped.orphan.toLocaleString()} dropped — no matching food`);
+  console.log(`  ${sDropped.noLabel.toLocaleString()} dropped — no usable amount or label`);
+
+  console.log("\n  Sample servings:");
+  console.table(servingRows.slice(0, 5));
+
+  const servingsAffected = await writeServings(servingRows);
+  console.log(`  ${servingsAffected.toLocaleString()} servings inserted or updated`);
+
+  console.log("\nSummary");
+  console.log(`  foods:         ${(await prisma.food.count()).toLocaleString()}`);
+  console.log(
+    `  food_servings: ${(await prisma.foodServing.count()).toLocaleString()}`
+  );
 
   console.log(`\nDone in ${((Date.now() - started) / 1000).toFixed(1)}s\n`);
 }
