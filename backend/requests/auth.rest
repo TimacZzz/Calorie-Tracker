@@ -1,0 +1,46 @@
+@host = http://localhost:3000
+
+### register
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "password123" }
+
+### me — should be 200
+GET {{host}}/api/me
+
+### login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "password123" }
+
+### wrong password — 401
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "wrongpassword" }
+
+### unknown email — same 401, same message
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "nobody@example.com", "password": "password123" }
+
+### duplicate email — 409
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "password123" }
+
+### short password — 400
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "email": "second@example.com", "password": "short" }
+
+### logout
+POST {{host}}/api/auth/logout
+
+### me after logout — 401
+GET {{host}}/api/me
