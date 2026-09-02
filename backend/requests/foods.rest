@@ -1,0 +1,28 @@
+@host = http://localhost:3000
+
+### Multi-word query
+GET {{host}}/api/foods/search?q=chicken breast
+
+### Single word, head-noun match
+GET {{host}}/api/foods/search?q=rice
+
+### Prefix collision — should return eggs, not eggplant
+GET {{host}}/api/foods/search?q=egg
+
+### Punctuation — must not reach to_tsquery raw
+GET {{host}}/api/foods/search?q=chicken (breast)
+
+### Empty query — expect 400
+GET {{host}}/api/foods/search?q=
+
+### Non-numeric limit — expect 400
+GET {{host}}/api/foods/search?q=rice&limit=abc
+
+### Over-max limit — expect 400
+GET {{host}}/api/foods/search?q=rice&limit=999
+
+### No matches — expect empty results, not an error
+GET {{host}}/api/foods/search?q=xyzzy
+
+### Pagination — second page
+GET {{host}}/api/foods/search?q=cheese&limit=5&offset=5

@@ -89,11 +89,15 @@ model Food {
   sodiumMg    Decimal?   @map("sodium_mg") @db.Decimal(8, 2)
   createdAt   DateTime   @default(now()) @map("created_at")
 
+  /// Generated column, maintained by Postgres. See migration add_foods_search_vector.
+  searchVector Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, description)")) @map("search_vector")
+
   user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   servings FoodServing[]
   entries  LogEntry[]
 
   @@index([userId])
+  @@index([searchVector(ops: raw("tsvector_ops"))], type: Gin)
   @@map("foods")
 }
 
