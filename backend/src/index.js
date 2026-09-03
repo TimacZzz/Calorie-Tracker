@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import foodsRouter from "./routes/foods.js";
 import authRouter from "./routes/auth.js";
+import profileRouter from "./routes/profile.js";
 import { getUserById } from "./library/authHelper.js";
 import cookieParser from "cookie-parser";
 import { requireAuth } from "./middleware/requireAuth.js";
@@ -15,6 +16,7 @@ app.use(cookieParser());
 // Routers
 app.use("/api/foods", foodsRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/profile", profileRouter);
 
 app.get("/api/me", requireAuth, async (req, res) => {
   const user = await getUserById(req.user.id);
