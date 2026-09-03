@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Diary from "./pages/Diary";
+import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoutes";
 
-function App() {
-  const [count, setCount] = useState(0);
-  const [health, setHealth] = useState("");
-
-  useEffect(() => {
-    axios.get('/api/health')
-      .then(res => setHealth(res.data.status));
-  }, [])
-
+export default function App() {
   return (
-    <h1 className="text-3xl font-bold underline">{health}</h1>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/" element={<ProtectedRoute><Diary /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 
-export default App;
