@@ -50,5 +50,12 @@ export function signToken(user) {
 }
 
 export async function getUserById(id){
-  return await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
+  const user = await prisma.user.findUnique({ 
+    where: { id }, 
+    select: { id: true, email: true, profile: { select: { userId: true } } } 
+  });
+
+  if (!user) return null;
+
+  return { id: user.id, email: user.email, hasProfile: user.profile !== null };
 }
