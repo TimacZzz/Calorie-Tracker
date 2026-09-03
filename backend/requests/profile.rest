@@ -1,0 +1,55 @@
+@host = http://localhost:3000
+
+### login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "password123" }
+
+### profile before onboarding — expect 404
+GET {{host}}/api/profile/me
+
+### create
+PUT {{host}}/api/profile/me
+Content-Type: application/json
+
+{
+  "sex": "MALE",
+  "birthDate": "1996-03-14",
+  "heightCm": 180,
+  "weightKg": 80,
+  "activityLevel": "MODERATE",
+  "goal": "MAINTAIN"
+}
+
+### read back
+GET {{host}}/api/profile/me
+
+### update — same person, goal LOSE
+PUT {{host}}/api/profile/me
+Content-Type: application/json
+
+{
+  "sex": "MALE",
+  "birthDate": "1996-03-14",
+  "heightCm": 180,
+  "weightKg": 80,
+  "activityLevel": "MODERATE",
+  "goal": "LOSE"
+}
+
+### bad input — expect 400
+PUT {{host}}/api/profile/me
+Content-Type: application/json
+
+{
+  "sex": "male",
+  "birthDate": "1996-03-14",
+  "heightCm": 180,
+  "weightKg": 80,
+  "activityLevel": "MODERATE",
+  "goal": "LOSE"
+}
+
+### onboarding flag — expect hasProfile true
+GET {{host}}/api/me
