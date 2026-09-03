@@ -67,6 +67,7 @@ model Profile {
   carbsTargetG   Int           @map("carbs_target_g")
   fatTargetG     Int           @map("fat_target_g")
   updatedAt      DateTime      @updatedAt @map("updated_at")
+  targetsAreCustom Boolean @default(false) @map("targets_are_custom")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
