@@ -1,8 +1,11 @@
 import express from "express";
 import { z } from "zod";
 import { searchFoods } from "../library/searchFoods.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const foodsRouter = express.Router();
+
+foodsRouter.use(requireAuth);
 
 const searchQuerySchema = z.object({
   q: z.string().trim().min(1).max(100),
@@ -10,20 +13,16 @@ const searchQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-foodsRouter.get('/search', async(req, res, next) => {
+foodsRouter.get('/search', async(req, res) => {
   const parsed = searchQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({
-      error: "Invalid search parameters",
-    });
+    const error = new Error("Invalid search parameters");
+    error.status = 400;
+    throw error;
   }
 
-  try {
-    const { results, hasMore } = await searchFoods({ ...parsed.data, userId: null });
-    res.json({ results, hasMore });
-  } catch (err) {
-    next(err);
-  }
+  const { results, hasMore } = await searchFoods({ ...parsed.data, userId: req.user.id });
+  res.json({ results, hasMore });
 })
 
 export default foodsRouter
