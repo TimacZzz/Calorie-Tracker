@@ -48,3 +48,7 @@ export function signToken(user) {
     { expiresIn: TOKEN_TTL }
   );
 }
+
+export async function getUserById(id){
+  return await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
+}

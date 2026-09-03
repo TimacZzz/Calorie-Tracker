@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import foodsRouter from "./routes/foods.js";
 import authRouter from "./routes/auth.js";
+import { getUserById } from "./library/authHelper.js";
 import cookieParser from "cookie-parser";
 import { requireAuth } from "./middleware/requireAuth.js";
 
@@ -15,8 +16,14 @@ app.use(cookieParser());
 app.use("/api/foods", foodsRouter);
 app.use("/api/auth", authRouter);
 
-app.get("/api/me", requireAuth, (req, res) => {
-  res.json({ user: req.user });
+app.get("/api/me", requireAuth, async (req, res) => {
+  const user = await getUserById(req.user.id);
+  if (!user) {
+    const error = new Error("Not authenticated, user not found");
+    error.status = 401;
+    throw error;
+  }
+  res.json({ user });
 });
 
 app.get("/api/health", (req, res) => {

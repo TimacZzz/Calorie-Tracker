@@ -4,7 +4,7 @@ export function requireAuth(req, res, next) {
   const token = req.cookies?.token;
 
   if (!token) {
-    const error = new Error("Not authenticated");
+    const error = new Error("Not authenticated, no token");
     error.status = 401;
     return next(error);
   }
@@ -14,7 +14,7 @@ export function requireAuth(req, res, next) {
     req.user = { id: Number(payload.sub) };
     next();
   } catch {
-    const error = new Error("Not authenticated");
+    const error = new Error("Not authenticated, token is incorrect");
     error.status = 401;
     next(error);
   }
