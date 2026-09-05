@@ -4,6 +4,7 @@ import Register from "./pages/Register";
 import Diary from "./pages/Diary";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoutes";
+import Onboarding from "./pages/Onboarding";
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<ProtectedRoute><Diary /></ProtectedRoute>} />
+      <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
