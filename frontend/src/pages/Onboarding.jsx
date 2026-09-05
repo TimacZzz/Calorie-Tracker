@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { SEX_OPTIONS, ACTIVITY_OPTIONS, GOAL_OPTIONS } from "../constants/profileOptions";
+import { api } from "../library/api";
+import TargetsSummary from "../components/onboarding/TargetsSummary";
+import StepBasics from "../components/onboarding/StepBasics";
+import StepBody from "../components/onboarding/StepBody";
+import StepActivity  from "../components/onboarding/StepActivity";
 
 const EMPTY_FORM = {
-  age: "",
+  birthDate: "",
   sex: "",
   heightCm: "",
   weightKg: "",
@@ -10,145 +14,95 @@ const EMPTY_FORM = {
   goal: "",
 };
 
+const STEPS = [
+  { title: "About you", Fields: StepBasics, required: ["birthDate", "sex"] },
+  { title: "Height and weight", Fields: StepBody, required: ["heightCm", "weightKg"] },
+  { title: "Activity and goal", Fields: StepActivity, required: ["activityLevel", "goal"] },
+];
+
 export default function Onboarding() {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [targets, setTargets] = useState(null);
+
+  const { title, Fields, required } = STEPS[step];
+  const isLastStep = step === STEPS.length - 1;
+  const canAdvance = required.every((field) => form[field] !== "");
 
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
   }
 
+  async function handleSubmit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const { data } = await api.put("/api/profile/me", {
+        ...form,
+        heightCm: Number(form.heightCm),
+        weightKg: Number(form.weightKg),
+      });
+      setTargets(data.profile);
+    } catch {
+      setError("Could not save your profile. Check your details and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (targets) {
+    return <TargetsSummary targets={targets} />;
+  }
+
   return (
     <div className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-2xl font-semibold text-slate-900">Set up your profile</h1>
+      <p className="text-sm text-slate-500">
+        Step {step + 1} of {STEPS.length}
+      </p>
+      <div className="mt-2 h-1 w-full rounded-full bg-slate-200">
+        <div
+          className="h-1 rounded-full bg-slate-900 transition-all"
+          style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+        />
+      </div>
+
+      <h1 className="mt-6 text-2xl font-semibold text-slate-900">{title}</h1>
       <p className="mt-2 text-sm text-slate-600">
         These six answers set your daily calorie and macro targets. You can change them later.
       </p>
 
       <div className="mt-8 space-y-5">
-        <div>
-          <label htmlFor="age" className="block text-sm font-medium text-slate-700">
-            Age
-          </label>
-          <input
-            id="age"
-            name="age"
-            type="number"
-            inputMode="numeric"
-            min="13"
-            max="120"
-            value={form.age}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          />
-        </div>
+        <Fields form={form} onChange={handleChange} />
+      </div>
 
-        <div>
-          <label htmlFor="sex" className="block text-sm font-medium text-slate-700">
-            Sex
-          </label>
-          <select
-            id="sex"
-            name="sex"
-            value={form.sex}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+      {error && (
+        <p className="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-8 flex gap-3">
+        {step > 0 && (
+          <button
+            type="button"
+            onClick={() => setStep((s) => s - 1)}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
           >
-            <option value="">Select</option>
-            {SEX_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-slate-500">
-            Used only in the calorie equation, which is calibrated on these two values.
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="heightCm" className="block text-sm font-medium text-slate-700">
-            Height (cm)
-          </label>
-          <input
-            id="heightCm"
-            name="heightCm"
-            type="number"
-            inputMode="decimal"
-            min="100"
-            max="250"
-            value={form.heightCm}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="weightKg" className="block text-sm font-medium text-slate-700">
-            Current weight (kg)
-          </label>
-          <input
-            id="weightKg"
-            name="weightKg"
-            type="number"
-            inputMode="decimal"
-            min="30"
-            max="400"
-            step="0.1"
-            value={form.weightKg}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="activityLevel" className="block text-sm font-medium text-slate-700">
-            Activity level
-          </label>
-          <select
-            id="activityLevel"
-            name="activityLevel"
-            value={form.activityLevel}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          >
-            <option value="">Select</option>
-            {ACTIVITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="goal" className="block text-sm font-medium text-slate-700">
-            Goal
-          </label>
-          <select
-            id="goal"
-            name="goal"
-            value={form.goal}
-            onChange={handleChange}
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-          >
-            <option value="">Select</option>
-            {GOAL_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* TODO Day 10: replace with the real submit. Numbers are strings here and
-            need Number() at the post boundary, or z.coerce.number() server-side. */}
+            Back
+          </button>
+        )}
+        {/* TODO: last step submits to the profile endpoint. Birth date, height and weight
+            are strings here and need Number() at the post boundary. */}
         <button
           type="button"
-          onClick={() => console.log(form)}
-          className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+          disabled={!canAdvance || submitting}
+          onClick={() => (isLastStep ? handleSubmit() : setStep((s) => s + 1))}
+          className="flex-1 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          Log form state
+          {submitting ? "Saving…" : isLastStep ? "See my targets" : "Continue"}
         </button>
       </div>
     </div>

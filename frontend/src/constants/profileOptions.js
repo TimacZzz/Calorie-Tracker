@@ -19,3 +19,13 @@ export const GOAL_OPTIONS = [
   { value: "MAINTAIN", label: "Maintain weight" },
   { value: "GAIN", label: "Gain weight" },
 ];
+
+function isoYearsAgo(years) {
+  const today = new Date();
+  const date = new Date(today.getFullYear() - years, today.getMonth(), today.getDate());
+  return date.toLocaleDateString("en-CA");
+}
+
+// Must stay in step with MIN_BIRTH_DATE / MAX_BIRTH_DATE in the profile schema.
+export const MAX_BIRTH_DATE = isoYearsAgo(13);
+export const MIN_BIRTH_DATE = isoYearsAgo(120);
