@@ -5,14 +5,30 @@ import jwt from "jsonwebtoken";
 const SALT_ROUNDS = 10;
 const TOKEN_TTL = "7d";
 
+const USER_SELECT = {
+  id: true,
+  email: true,
+  profile: { select: { userId: true } },
+};
+
+function serialiseUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    hasProfile: user.profile !== null,
+  };
+}
+
 export async function registerUser({ email, password }) {
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
   try {
-    return await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: { email, passwordHash },
-      select: { id: true, email: true, createdAt: true },
+      select: USER_SELECT,
     });
+
+    return serialiseUser(newUser);
   } catch (err) {
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -27,7 +43,10 @@ export async function registerUser({ email, password }) {
 }
 
 export async function verifyCredentials({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ 
+    where: { email },
+    select: { ...USER_SELECT, passwordHash: true }, 
+  });
 
   if (!user) {
     // Prevent timing attack
@@ -38,7 +57,7 @@ export async function verifyCredentials({ email, password }) {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return null;
 
-  return { id: user.id, email: user.email, createdAt: user.createdAt };
+  return serialiseUser(user);
 }
 
 export function signToken(user) {
@@ -52,10 +71,10 @@ export function signToken(user) {
 export async function getUserById(id){
   const user = await prisma.user.findUnique({ 
     where: { id }, 
-    select: { id: true, email: true, profile: { select: { userId: true } } } 
+    select: USER_SELECT
   });
 
   if (!user) return null;
 
-  return { id: user.id, email: user.email, hasProfile: user.profile !== null };
+  return serialiseUser(user);
 }
