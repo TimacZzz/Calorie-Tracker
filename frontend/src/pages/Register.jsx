@@ -18,7 +18,7 @@ export default function Register() {
     setSubmitting(true);
     try {
       await register(email, password);
-      navigate("/", { replace: true });
+      navigate("/onboarding", { replace: true });
     } catch (err) {
       if (!err.response) {
         setError("Can't reach the server.");

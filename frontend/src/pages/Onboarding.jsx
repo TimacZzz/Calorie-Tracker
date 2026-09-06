@@ -4,6 +4,7 @@ import TargetsSummary from "../components/onboarding/TargetsSummary";
 import StepBasics from "../components/onboarding/StepBasics";
 import StepBody from "../components/onboarding/StepBody";
 import StepActivity  from "../components/onboarding/StepActivity";
+import { useAuth } from "../hooks/useAuth";
 
 const EMPTY_FORM = {
   birthDate: "",
@@ -30,6 +31,7 @@ export default function Onboarding() {
   const { title, Fields, required } = STEPS[step];
   const isLastStep = step === STEPS.length - 1;
   const canAdvance = required.every((field) => form[field] !== "");
+  const { markProfileComplete } = useAuth();
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -46,6 +48,7 @@ export default function Onboarding() {
         weightKg: Number(form.weightKg),
       });
       setTargets(data.profile);
+      markProfileComplete();
     } catch {
       setError("Could not save your profile. Check your details and try again.");
     } finally {
@@ -94,8 +97,6 @@ export default function Onboarding() {
             Back
           </button>
         )}
-        {/* TODO: last step submits to the profile endpoint. Birth date, height and weight
-            are strings here and need Number() at the post boundary. */}
         <button
           type="button"
           disabled={!canAdvance || submitting}

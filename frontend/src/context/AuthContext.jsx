@@ -43,6 +43,10 @@ export default function AuthContextProvider({ children }){
     }
   }
 
-  const value = { user, status, login, register, logout };
+  function markProfileComplete() {
+    setUser(u => ({ ...u, hasProfile: true }));
+  }
+
+  const value = { user, status, login, register, logout, markProfileComplete };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
