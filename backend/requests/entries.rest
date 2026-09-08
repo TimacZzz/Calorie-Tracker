@@ -1,0 +1,194 @@
+@host = http://localhost:3000
+
+### ── Fill these in as you go ──────────────────────────────
+@foodId = 11634
+@servingId = 135302
+@otherFoodId = 7097
+@otherServingId = 122315
+@entryId = 1
+@today = 2026-09-08
+
+### ── Identities ───────────────────────────────────────────
+
+### Login as A
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "test@example.com", "password": "password123" }
+
+### Login as B
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@outlook.com", "password": "administrator" }
+
+### ── Discovery: get ids ───────────────────────────────────
+
+### Search a food  → set @foodId
+GET {{host}}/api/foods/search?q=banana&limit=5
+
+### Its servings   → set @servingId
+GET {{host}}/api/foods/{{foodId}}
+
+### A different food → set @otherFoodId, @otherServingId
+GET {{host}}/api/foods/search?q=chicken%20breast&limit=5
+
+###
+GET {{host}}/api/foods/{{otherFoodId}}
+
+### ── Happy path (as A) ────────────────────────────────────
+
+### 1. Create with a serving → 201, set @entryId from the response
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "servingId": {{servingId}},
+  "quantity": 1.5,
+  "mealType": "BREAKFAST",
+  "loggedOn": "{{today}}"
+}
+
+### 2. Create grams-only (servingId omitted) → 201, serving: null
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": 100,
+  "mealType": "LUNCH",
+  "loggedOn": "{{today}}"
+}
+
+### 3. Patch quantity only → 200
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{ "quantity": 2 }
+
+### 4. Patch meal type only → 200
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{ "mealType": "DINNER" }
+
+### 5. Clear the serving → 200, serving null, quantity now grams
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{ "servingId": null, "quantity": 1.5 }
+
+### ── Ownership (run the B login above first) ──────────────
+
+### 6. B patches A's entry → 403
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{ "quantity": 999 }
+
+### 7. B deletes A's entry → 403
+DELETE {{host}}/api/entries/{{entryId}}
+
+### ── Validation (log back in as A) ────────────────────────
+
+### 8. Empty patch → 400
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{}
+
+### 9. Typo'd key → 400, not a silent 200
+PATCH {{host}}/api/entries/{{entryId}}
+Content-Type: application/json
+
+{ "quantitiy": 5 }
+
+### 10. Unknown key on create → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": 1,
+  "mealType": "BREAKFAST",
+  "loggedOn": "{{today}}",
+  "calories": 500
+}
+
+### 11. Malformed id → 400
+PATCH {{host}}/api/entries/abc
+Content-Type: application/json
+
+{ "quantity": 2 }
+
+### 12. Absent id → 404
+DELETE {{host}}/api/entries/99999999
+
+### 13. Impossible date → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": 1,
+  "mealType": "BREAKFAST",
+  "loggedOn": "2026-02-31"
+}
+
+### 14. Date with a time component → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": 1,
+  "mealType": "BREAKFAST",
+  "loggedOn": "2026-09-08T00:00:00.000Z"
+}
+
+### 15. Bad meal type → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": 1,
+  "mealType": "BRUNCH",
+  "loggedOn": "{{today}}"
+}
+
+### 16. Negative quantity → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "quantity": -1,
+  "mealType": "BREAKFAST",
+  "loggedOn": "{{today}}"
+}
+
+### ── Cross-resource coherence ─────────────────────────────
+
+### 17. Serving from a different food → 400
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": {{foodId}},
+  "servingId": {{otherServingId}},
+  "quantity": 1,
+  "mealType": "BREAKFAST",
+  "loggedOn": "{{today}}"
+}
+
+### 18. Nonexistent food → 404
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": 99999999,
+  "quantity": 1,
+  "mealType": "BREAKFAST",
+  "loggedOn":
