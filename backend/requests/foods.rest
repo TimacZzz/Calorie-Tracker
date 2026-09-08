@@ -32,3 +32,15 @@ GET {{host}}/api/foods/search?q=xyzzy
 
 ### Pagination — second page
 GET {{host}}/api/foods/search?q=cheese&limit=5&offset=5
+
+### valid, has servings
+GET {{host}}/api/foods/153
+
+### grams-only (one of the 323)
+GET {{host}}/api/foods/541
+
+### absent → 404
+GET {{host}}/api/foods/999999
+
+### malformed → 400
+GET {{host}}/api/foods/abc
