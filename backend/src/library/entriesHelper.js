@@ -113,3 +113,12 @@ export async function deleteEntry(userId, id) {
   await findOwned(userId, id);
   await prisma.logEntry.delete({ where: { id } });
 }
+
+export async function listEntries(userId, loggedOn) {
+  const entries = await prisma.logEntry.findMany({
+    where: { userId, loggedOn: new Date(`${loggedOn}T00:00:00.000Z`) },
+    include: ENTRY_INCLUDE,
+    orderBy: [{ mealType: "asc" }, { id: "asc" }],
+  });
+  return entries.map(serialiseEntry);
+}

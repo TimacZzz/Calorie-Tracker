@@ -192,3 +192,23 @@ Content-Type: application/json
   "quantity": 1,
   "mealType": "BREAKFAST",
   "loggedOn":
+}
+
+### List a populated day
+GET {{host}}/api/entries?date=2026-09-08
+Content-Type: application/json
+
+### List an empty day
+GET {{host}}/api/entries?date=2020-01-01
+Content-Type: application/json
+
+### Invalid date — rolls to March 3rd, must 400
+GET {{host}}/api/entries?date=2026-02-31
+Content-Type: application/json
+
+### Typo'd param — .strict(), must 400
+GET {{host}}/api/entries?dat=2026-09-08
+Content-Type: application/json
+
+### B lists A's populated day — must be empty, not 403
+GET {{host}}/api/entries?date=2026-09-08

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { createEntry, updateEntry, deleteEntry } from "../library/entriesHelper.js";
+import { createEntry, updateEntry, deleteEntry, listEntries } from "../library/entriesHelper.js";
 
 const entriesRouter = Router();
 
@@ -30,6 +30,27 @@ const updateEntrySchema = entryFields
   .refine((v) => Object.keys(v).length > 0, "empty patch");
 
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
+
+const listQuerySchema = z
+  .object({
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine(isRealDate),
+  })
+  .strict();
+
+entriesRouter.get("/", async (req, res) => {
+  const parsed = listQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    const err = new Error("Invalid query");
+    err.status = 400;
+    throw err;
+  }
+
+  const entries = await listEntries(req.user.id, parsed.data.date);
+  res.json({ entries });
+});
 
 entriesRouter.post("/", async (req, res) => {
   const parsed = createEntrySchema.safeParse(req.body);
