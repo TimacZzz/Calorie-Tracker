@@ -4,8 +4,11 @@ import { useState, useEffect } from "react";
 import { api } from "../library/api";
 import axios from "axios";
 import { todayLocal } from "../library/dates";
+import { groupByMeal } from "../library/diaryHelper";
 import { MEAL_TYPES } from "../constants/mealTypes";
 import { resolveGrams, nutritionFor } from "../library/nutrition";
+import FoodDetail from "../components/FoodDetails";
+import FoodSearch from "../components/FoodSearch";
 
 export default function Diary() {
   const { user, logout } = useAuth();
@@ -13,28 +16,8 @@ export default function Diary() {
   const [date] = useState(todayLocal());
   const [entries, setEntries] = useState([]);
   const [status, setStatus] = useState("loading");
-
-  async function handleLogout() {
-    await logout();
-    navigate("/login", { replace: true });
-  }
-
-  const byMeal = MEAL_TYPES.map((meal) => {
-    const items = entries.filter((e) => e.mealType === meal.value);
-    const totals = items.reduce(
-      (acc, e) => {
-        const n = nutritionFor(e.food, resolveGrams(e.quantity, e.serving));
-        return {
-          calories: acc.calories + n.calories,
-          proteinG: acc.proteinG + n.proteinG,
-          carbsG: acc.carbsG + n.carbsG,
-          fatG: acc.fatG + n.fatG,
-        };
-      },
-      { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 }
-    );
-    return { ...meal, items, totals };
-  });
+  const [addingTo, setAddingTo] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -54,6 +37,24 @@ export default function Diary() {
     return () => controller.abort();
   }, [date]);
 
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
+
+  async function handleLog({ food, quantity, serving }) {
+    const res = await api.post("/api/entries", {
+      foodId: food.id,
+      servingId: serving ? serving.id : null,
+      quantity,
+      mealType: addingTo,
+      loggedOn: date,
+    });
+    setEntries((prev) => [...prev, res.data]);
+    setAddingTo(null);
+    setSelectedId(null);
+  }
+
   return (
   <div className="p-6">
     <p className="text-sm">Signed in as {user.email}</p>
@@ -62,9 +63,17 @@ export default function Diary() {
     {status === "error" && <p className="mt-6 text-sm">Couldn't load this day.</p>}
 
     {status === "ready" &&
-      byMeal.map((meal) => (
+      groupByMeal(entries).map((meal) => (
         <section key={meal.value} className="mt-6">
-          <h2 className="font-medium">{meal.label}</h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-medium">{meal.label}</h2>
+            <button
+              onClick={() => setAddingTo(meal.value)}
+              className="text-sm underline"
+            >
+              Add
+            </button>
+          </div>
 
           {meal.items.length === 0 ? (
             <p className="text-sm text-gray-400">Nothing logged</p>
@@ -89,6 +98,34 @@ export default function Diary() {
           )}
         </section>
       ))}
+    
+    {addingTo && (
+      <div className="fixed inset-0 bg-black/30 flex items-end sm:items-center justify-center">
+        <div className="bg-white w-full sm:max-w-lg p-6 rounded-t-lg sm:rounded-lg max-h-[85vh] overflow-y-auto">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-medium">
+              Add to {MEAL_TYPES.find((m) => m.value === addingTo).label}
+            </h2>
+            <button 
+              onClick={() => {
+                setAddingTo(null);
+                setSelectedId(null);
+              }} 
+              className="text-sm underline"
+            >
+              Close
+            </button>
+          </div>
+          <div className="mx-auto max-w-md px-4 py-10">
+            <h1 className="mb-6 text-2xl font-semibold">Find a food</h1>
+            <FoodSearch onSelect={(food) => setSelectedId(food.id)} />
+            {selectedId && (
+              <FoodDetail foodId={selectedId} onLog={handleLog} />
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     <button onClick={handleLogout} className="mt-8 underline text-sm">
       Log out
