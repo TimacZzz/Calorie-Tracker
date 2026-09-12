@@ -6,7 +6,6 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoutes";
 import Onboarding from "./pages/Onboarding";
 import RequireProfile from "./components/RequireProfile";
-import Search from "./pages/Search";
 
 export default function App() {
   return (

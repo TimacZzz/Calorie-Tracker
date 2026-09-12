@@ -6,7 +6,7 @@
 @otherFoodId = 7097
 @otherServingId = 122315
 @entryId = 1
-@today = 2026-09-10
+@today = 2026-09-12
 
 ### ── Identities ───────────────────────────────────────────
 

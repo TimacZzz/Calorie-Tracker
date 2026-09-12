@@ -19,3 +19,15 @@ export function groupByMeal(entries) {
     return { ...meal, items, totals };
   });
 }
+
+export function sumMealTotals(byMeal) {
+  return byMeal.reduce(
+    (acc, meal) => ({
+      calories: acc.calories + meal.totals.calories,
+      proteinG: acc.proteinG + meal.totals.proteinG,
+      carbsG: acc.carbsG + meal.totals.carbsG,
+      fatG: acc.fatG + meal.totals.fatG,
+    }),
+    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 }
+  );
+}
