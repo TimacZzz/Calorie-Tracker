@@ -15,7 +15,6 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<ProtectedRoute><RequireProfile><Diary /></RequireProfile></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-      <Route path="/search" element={<ProtectedRoute><RequireProfile><Search /></RequireProfile></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
