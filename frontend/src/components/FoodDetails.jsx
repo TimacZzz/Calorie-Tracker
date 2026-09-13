@@ -4,7 +4,7 @@ import { api } from "../library/api.js";
 import { resolveGrams, nutritionFor } from "../library/nutrition.js";
 import { inputClass, labelClass } from "./onboarding/formStyles.js";
 
-const GRAMS = "grams";
+export const GRAMS = "grams";
 
 const ROWS = [
   { key: "calories", label: "Calories", unit: "kCal" },
@@ -22,7 +22,7 @@ function format(value, unit) {
   return unit ? `${rounded} ${unit}` : String(rounded);
 }
 
-export default function FoodDetail({ foodId, onLog }) {
+export default function FoodDetail({ foodId, onLog, initialQuantity = null, initialUnit = null, submitLabel = "Add to diary", }) {
   const [food, setFood] = useState(null);
   const [status, setStatus] = useState("loading");
   const [quantity, setQuantity] = useState("100");
@@ -35,10 +35,26 @@ export default function FoodDetail({ foodId, onLog }) {
     api
       .get(`/api/foods/${foodId}`, { signal: controller.signal })
       .then((res) => {
-        setFood(res.data);
-        const first = res.data.servings[0];
-        setUnit(first ? String(first.id) : GRAMS);
-        setQuantity(first ? "1" : "100");
+        const data = res.data;
+        setFood(data);
+
+        const match =
+          initialUnit != null &&
+          data.servings.find((s) => String(s.id) === String(initialUnit));
+
+        const nextUnit = match
+          ? String(match.id)
+          : initialUnit === GRAMS || data.servings.length === 0
+            ? GRAMS
+            : String(data.servings[0].id);
+
+        setUnit(nextUnit);
+        setQuantity(
+          initialQuantity != null
+            ? String(initialQuantity)
+            : nextUnit === GRAMS ? "100" : "1"
+        );
+
         setStatus("ready");
       })
       .catch((err) => {
@@ -146,7 +162,7 @@ export default function FoodDetail({ foodId, onLog }) {
         onClick={() => onLog({ food, quantity: parsedQuantity, serving })}
         className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:bg-slate-300"
       >
-        Add to diary
+        {submitLabel}
       </button>
     </div>
   );
