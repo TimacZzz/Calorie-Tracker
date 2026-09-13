@@ -1,12 +1,13 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import LoadingScreen from "./LoadingScreen";
 
 export default function RequireProfile({ children }) {
   const { status, user } = useAuth();
 
   if (status === "loading") {
-    return null;
-  } 
+    return <LoadingScreen />;
+  }
   if (status === "authenticated" && !user.hasProfile) {
     return <Navigate to="/onboarding" replace />;
   } 
