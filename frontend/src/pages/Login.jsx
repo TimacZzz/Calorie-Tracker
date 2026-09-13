@@ -20,7 +20,7 @@ export default function Login() {
       await login(email, password);
       navigate("/", { replace: true });
     } catch (err) {
-      if (!err.response) {
+      if (!err.response || err.response.status >= 500) {
         setError("Can't reach the server.");
       }
       else if (err.response.status === 429) {

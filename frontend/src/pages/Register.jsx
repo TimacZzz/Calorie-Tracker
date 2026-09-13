@@ -20,7 +20,7 @@ export default function Register() {
       await register(email, password);
       navigate("/onboarding", { replace: true });
     } catch (err) {
-      if (!err.response) {
+      if (!err.response || err.response.status >= 500) {
         setError("Can't reach the server.");
       } else if (err.response.status === 429) {
         setError("Too many attempts. Try again in a few minutes.");
