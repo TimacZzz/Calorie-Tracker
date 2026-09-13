@@ -4,6 +4,12 @@
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
+{ "email": "admin@outlook.com", "password": "administrator" }
+
+### Login as B
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
 { "email": "test@example.com", "password": "password123" }
 
 ### Multi-word query
@@ -44,3 +50,74 @@ GET {{host}}/api/foods/999999
 
 ### malformed → 400
 GET {{host}}/api/foods/abc
+
+### Create a custom food
+POST http://localhost:3000/api/foods
+Content-Type: application/json
+
+{
+  "description": "Protein shake, homemade",
+  "calories": 62,
+  "proteinG": 11.2,
+  "fatG": 1.4,
+  "carbsG": 2.1,
+  "fiberG": null,
+  "sugarG": 1.8,
+  "sodiumMg": 45
+}
+
+### A patches a seeded food -> expect 403
+PATCH {{host}}/api/foods/6670
+Content-Type: application/json
+
+{ "calories": 1 }
+
+### A patches a food that doesn't exist -> expect 404
+PATCH {{host}}/api/foods/999999
+Content-Type: application/json
+
+{ "calories": 1 }
+
+### Log the custom food
+POST {{host}}/api/entries
+Content-Type: application/json
+
+{
+  "foodId": 76984,
+  "quantity": 250,
+  "mealType": "BREAKFAST",
+  "loggedOn": "2026-09-13"
+}
+
+### Delete a food that has entries -> expect 409 naming the count
+DELETE {{host}}/api/foods/76984
+
+### B patches A's custom food -> expect 404
+PATCH {{host}}/api/foods/76984
+Content-Type: application/json
+
+{ "calories": 1 }
+
+### Empty patch -> expect 400
+PATCH {{host}}/api/foods/76984
+Content-Type: application/json
+
+{}
+
+### Typo'd key -> expect 400
+PATCH {{host}}/api/foods/76984
+Content-Type: application/json
+
+{ "calores": 50 }
+
+### Explicit null on a required field -> expect 400
+PATCH {{host}}/api/foods/76984
+Content-Type: application/json
+
+{ "calories": null }
+
+### Clear an optional nutrient -> expect 200, sugarG null
+PATCH {{host}}/api/foods/76984
+Content-Type: application/json
+
+{ "sugarG": null }

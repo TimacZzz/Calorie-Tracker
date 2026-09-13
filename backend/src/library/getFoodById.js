@@ -20,9 +20,17 @@ const SERVING_SELECT = {
   gramWeight: true,
 };
 
+export const FOOD_WITH_SERVINGS_SELECT = {
+  ...FOOD_SELECT,
+  servings: {
+    select: SERVING_SELECT,
+    orderBy: { gramWeight: "asc" },
+  },
+};
+
 const num = (d) => (d == null ? null : Number(d));
 
-const serialiseFood = (food) => ({
+export const serialiseFood = (food) => ({
   ...food,
   calories: num(food.calories),
   proteinG: num(food.proteinG),
@@ -43,13 +51,7 @@ export async function getFoodById(id, userId){
       id,
       OR: [{ userId: null }, { userId }],
     },
-    select: {
-      ...FOOD_SELECT,
-      servings: {
-        select: SERVING_SELECT,
-        orderBy: { gramWeight: "asc" }
-      }
-    }
+    select: FOOD_WITH_SERVINGS_SELECT
   });
 
   return serialiseFood(food);
