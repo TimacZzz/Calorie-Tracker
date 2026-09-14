@@ -12,6 +12,7 @@ import DailyTotals from "../components/DailyTotals";
 import DateNav from "../components/DateNav";
 import Modal from "../components/Modal.jsx";
 import EditEntryPanel from "../components/EditEntryPanel.jsx";
+import CustomFoodForm from "../components/CustomFoodForm.jsx";
 
 export default function Diary() {
   const { user, logout } = useAuth();
@@ -100,6 +101,12 @@ export default function Diary() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }
 
+  async function handleCreateFood(payload) {
+    const { data } = await api.post("/api/foods", payload);
+    setSelectedId(data.id);
+    setPanel({ mode: "add", meal: panel.meal, label: panel.label });
+  }
+
   return (
     <div className="p-6">
       <p className="text-sm">Signed in as {user.email}</p>
@@ -159,9 +166,23 @@ export default function Diary() {
       
       {panel?.mode === "add" && (
         <Modal title={`Add to ${panel.label}`} onClose={closePanel}>
-          {selectedId
-            ? <FoodDetail foodId={selectedId} onLog={handleLog} />
-            : <FoodSearch onSelect={(food) => setSelectedId(food.id)} />}
+          {selectedId ? (
+            <FoodDetail foodId={selectedId} onLog={handleLog} />
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId(null);
+                  setPanel({ ...panel, mode: "createFood" });
+                }}
+                className="mb-4 w-full rounded border px-3 py-2 text-sm hover:bg-slate-50"
+              >
+                Add a custom food
+              </button>
+              <FoodSearch onSelect={(food) => setSelectedId(food.id)} />
+            </>
+          )}
         </Modal>
       )}
 
@@ -173,6 +194,12 @@ export default function Diary() {
             onDelete={handleDelete}
             onClose={closePanel}
           />
+        </Modal>
+      )}
+
+      {panel?.mode === "createFood" && (
+        <Modal title="New food" onClose={closePanel}>
+          <CustomFoodForm onSubmit={handleCreateFood} onClose={closePanel} />
         </Modal>
       )}
 
