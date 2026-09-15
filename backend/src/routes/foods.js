@@ -35,7 +35,7 @@ const searchQuerySchema = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
-});
+}).strict();
 
 const foodIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
