@@ -1,6 +1,6 @@
-import { labelClass, inputClass } from "./formStyles";
+import { labelClass, inputClass } from "../onboarding/formStyles";
 
-export default function StepBody({ form, onChange }) {
+export default function BodyFields({ form, onChange }) {
   return (
     <>
       <div>

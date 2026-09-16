@@ -1,7 +1,7 @@
 import Select from "../Select";
 import { ACTIVITY_OPTIONS, GOAL_OPTIONS } from "../../constants/profileOptions";
 
-export default function StepActivity({ form, onChange }) {
+export default function ActivityFields({ form, onChange }) {
   return (
     <>
       <Select

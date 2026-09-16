@@ -1,9 +1,9 @@
 import Select from "../Select";
 import { SEX_OPTIONS } from "../../constants/profileOptions";
 import { MAX_BIRTH_DATE, MIN_BIRTH_DATE } from "../../constants/profileOptions";
-import { labelClass, inputClass } from "./formStyles";
+import { labelClass, inputClass } from "../onboarding/formStyles";
 
-export default function StepBasics({ form, onChange }) {
+export default function BasicFields({ form, onChange }) {
   return (
     <>
       <div>

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { api } from "../library/api";
 import TargetsSummary from "../components/onboarding/TargetsSummary";
-import StepBasics from "../components/onboarding/StepBasics";
-import StepBody from "../components/onboarding/StepBody";
-import StepActivity  from "../components/onboarding/StepActivity";
+import BasicsFields from "../components/profile/BasicsFields";
+import BodyFields from "../components/profile/BodyFields";
+import ActivityFields from "../components/profile/ActivityFields";
+import { toProfilePayload } from "../library/profile";
 import { useAuth } from "../hooks/useAuth";
 
 const EMPTY_FORM = {
@@ -16,9 +17,9 @@ const EMPTY_FORM = {
 };
 
 const STEPS = [
-  { title: "About you", Fields: StepBasics, required: ["birthDate", "sex"] },
-  { title: "Height and weight", Fields: StepBody, required: ["heightCm", "weightKg"] },
-  { title: "Activity and goal", Fields: StepActivity, required: ["activityLevel", "goal"] },
+  { title: "About you", Fields: BasicsFields, required: ["birthDate", "sex"] },
+  { title: "Height and weight", Fields: BodyFields, required: ["heightCm", "weightKg"] },
+  { title: "Activity and goal", Fields: ActivityFields, required: ["activityLevel", "goal"] },
 ];
 
 export default function Onboarding() {
@@ -42,11 +43,7 @@ export default function Onboarding() {
     setSubmitting(true);
     setError(null);
     try {
-      const { data } = await api.put("/api/profile/me", {
-        ...form,
-        heightCm: Number(form.heightCm),
-        weightKg: Number(form.weightKg),
-      });
+      const { data } = await api.put("/api/profile/me", toProfilePayload(form));
       setTargets(data.profile);
       markProfileComplete();
     } catch {
