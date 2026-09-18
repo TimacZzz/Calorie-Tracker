@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
 import { api } from "../library/api";
@@ -109,7 +109,17 @@ export default function Diary() {
 
   return (
     <div className="p-6">
-      <p className="text-sm">Signed in as {user.email}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-600">Signed in as {user.email}</p>
+        <div className="flex items-center gap-4">
+          <Link to="/profile" className="text-sm text-slate-600 hover:text-slate-900">
+            Profile
+          </Link>
+          <button onClick={handleLogout} className="text-sm text-slate-600 underline hover:text-slate-900">
+            Log out
+          </button>
+        </div>
+      </div>
 
       <DateNav date={date} onChange={goToDate} />
 
@@ -202,10 +212,6 @@ export default function Diary() {
           <CustomFoodForm onSubmit={handleCreateFood} onClose={closePanel} />
         </Modal>
       )}
-
-      <button onClick={handleLogout} className="mt-8 underline text-sm">
-        Log out
-      </button>
     </div>
   );
 }

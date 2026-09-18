@@ -6,6 +6,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoutes";
 import Onboarding from "./pages/Onboarding";
 import RequireProfile from "./components/RequireProfile";
+import Profile from "./pages/Profile";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/" element={<ProtectedRoute><RequireProfile><Diary /></RequireProfile></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><RequireProfile><Profile /></RequireProfile></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
