@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { createEntry, updateEntry, deleteEntry, listEntries } from "../library/entriesHelper.js";
+import { DATE_RE, isRealDate } from "../library/dateHelper.js";
 
 const entriesRouter = Router();
 
@@ -9,17 +10,12 @@ entriesRouter.use(requireAuth);
 
 const mealTypes = ["BREAKFAST", "MORNING_SNACK", "LUNCH", "AFTERNOON_SNACK", "DINNER", "NIGHT_SNACK"];
 
-function isRealDate(s) {
-  const d = new Date(`${s}T00:00:00.000Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
-}
-
 const entryFields = z.object({
   foodId:    z.number().int().positive(),
   servingId: z.number().int().positive().nullable().optional(),
   quantity:  z.number().positive().max(10000),
   mealType:  z.enum(mealTypes),
-  loggedOn:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDate),
+  loggedOn: z.string().regex(DATE_RE).refine(isRealDate),
 });
 
 const createEntrySchema = entryFields.strict();
@@ -35,7 +31,7 @@ const listQuerySchema = z
   .object({
     date: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .regex(DATE_RE)
       .refine(isRealDate),
   })
   .strict();
