@@ -4,6 +4,7 @@ import foodsRouter from "./routes/foods.js";
 import authRouter from "./routes/auth.js";
 import profileRouter from "./routes/profile.js";
 import entriesRouter from "./routes/entries.js";
+import analyticsRouter from "./routes/analytics.js"
 import { getUserById } from "./library/authHelper.js";
 import cookieParser from "cookie-parser";
 import { requireAuth } from "./middleware/requireAuth.js";
@@ -18,6 +19,7 @@ app.use("/api/foods", foodsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/entries", entriesRouter);
+app.use("/api/analytics", analyticsRouter);
 
 app.get("/api/me", requireAuth, async (req, res) => {
   const user = await getUserById(req.user.id);

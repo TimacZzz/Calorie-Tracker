@@ -1,0 +1,46 @@
+@host = http://localhost:3000
+
+### Login as A
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@outlook.com",
+  "password": "administrator"
+}
+
+### Confirm who we are
+GET {{host}}/api/me
+
+### Happy path — the verified mixed day
+GET {{host}}/api/analytics/daily?start=2026-09-12&end=2026-09-12
+
+### Wider range — expect five rows, 2026-09-09 absent
+GET {{host}}/api/analytics/daily?start=2026-09-08&end=2026-09-13
+
+### Range with no entries at all — expect 200 with []
+GET {{host}}/api/analytics/daily?start=2020-01-01&end=2020-01-07
+
+### start after end — expect 400
+GET {{host}}/api/analytics/daily?start=2026-09-13&end=2026-09-08
+
+### Range too long — expect 400
+GET {{host}}/api/analytics/daily?start=2020-01-01&end=2026-09-13
+
+### Rolls silently through the regex — expect 400
+GET {{host}}/api/analytics/daily?start=2026-02-31&end=2026-02-31
+
+### Malformed — expect 400
+GET {{host}}/api/analytics/daily?start=12-09-2026&end=2026-09-13
+
+### Missing a bound — expect 400, no server-side default
+GET {{host}}/api/analytics/daily?start=2026-09-12
+
+### Typo'd key — expect 400, not a silent strip
+GET {{host}}/api/analytics/daily?start=2026-09-12&end=2026-09-12&limt=5
+
+### Anonymous — expect 401
+POST {{host}}/api/auth/logout
+
+###
+GET {{host}}/api/analytics/daily?start=2026-09-12&end=2026-09-12
