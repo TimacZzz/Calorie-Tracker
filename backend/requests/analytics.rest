@@ -12,6 +12,15 @@ Content-Type: application/json
 ### Confirm who we are
 GET {{host}}/api/me
 
+### Summary, known range: expect 5 / 1483.577 / 0
+GET {{host}}/api/analytics/summary?start=2026-09-08&end=2026-09-13
+
+### Summary, empty range: expect 0 / null / 0
+GET {{host}}/api/analytics/summary?start=2020-01-01&end=2020-01-07
+
+### Summary, bad range: expect 400
+GET {{host}}/api/analytics/summary?start=2026-09-13&end=2026-09-08
+
 ### Happy path — the verified mixed day
 GET {{host}}/api/analytics/daily?start=2026-09-12&end=2026-09-12
 

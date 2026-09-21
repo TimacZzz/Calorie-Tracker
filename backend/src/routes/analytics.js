@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { getDailySeries } from "../library/analyticsHelper.js";
+import { getDailySeries, getSummaryStats } from "../library/analyticsHelper.js";
 import { DATE_RE, isRealDate, daysBetween } from "../library/dateHelper.js";
 
 const analyticsRouter = Router();
@@ -28,6 +28,18 @@ analyticsRouter.get("/daily", async (req, res) => {
 
   const series = await getDailySeries(req.user.id, parsed.data.start, parsed.data.end);
   res.json({ series });
+});
+
+analyticsRouter.get("/summary", async (req, res) => {
+  const parsed = dailyQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    const err = new Error("Invalid query");
+    err.status = 400;
+    throw err;
+  }
+
+  const summary = await getSummaryStats(req.user.id, parsed.data.start, parsed.data.end);
+  res.json({ summary });
 });
 
 export default analyticsRouter;

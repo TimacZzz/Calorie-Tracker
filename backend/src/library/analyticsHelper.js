@@ -40,3 +40,32 @@ export async function getDailySeries(userId, startDate, endDate) {
     ORDER BY e.logged_on ASC
   `;
 }
+
+export async function getSummaryStats(userId, startDate, endDate) {
+  // count() returns bigint, which Prisma hands back as a JS BigInt, which
+  // JSON.stringify throws on. Hence ::int on both counts.
+  const rows = await prisma.$queryRaw`
+    WITH target AS (
+      SELECT calorie_target AS kcal FROM profiles WHERE user_id = ${userId}
+    ),
+    daily AS (
+      SELECT e.logged_on,
+             SUM(e.quantity * COALESCE(s.gram_weight, 1) / 100.0 * f.calories) AS calories
+      FROM log_entries e
+      JOIN foods f ON f.id = e.food_id
+      LEFT JOIN food_servings s ON s.id = e.serving_id
+      WHERE e.user_id = ${userId}
+        AND e.logged_on BETWEEN ${startDate}::date AND ${endDate}::date
+      GROUP BY e.logged_on
+    )
+    SELECT
+      count(*)::int         AS "daysLogged",
+      AVG(calories)::float8 AS "averageCalories",
+      count(*) FILTER (
+        WHERE calories BETWEEN (SELECT kcal FROM target) * 0.9
+                           AND (SELECT kcal FROM target) * 1.1
+      )::int                AS "daysOnTarget"
+    FROM daily
+  `;
+  return rows[0];
+}
