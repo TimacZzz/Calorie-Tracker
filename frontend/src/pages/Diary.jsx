@@ -115,6 +115,9 @@ export default function Diary() {
           <Link to="/profile" className="text-sm text-slate-600 hover:text-slate-900">
             Profile
           </Link>
+          <Link to="/analytics" className="text-sm text-slate-600 hover:text-slate-900">
+            Analytics
+          </Link>
           <button onClick={handleLogout} className="text-sm text-slate-600 underline hover:text-slate-900">
             Log out
           </button>
