@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { api } from "../library/api";
 import { rangeEndingToday, densifySeries } from "../library/analytics";
+import MacroDonut from "../components/MacroDonut";
 
 const RANGE_OPTIONS = [7, 30];
 
@@ -129,6 +130,7 @@ export default function Analytics() {
   const [summaryStatus, setSummaryStatus] = useState("loading");
 
   const { start, end } = rangeEndingToday(days);
+  const todayRow = series.find((row) => row.date === end) ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -225,6 +227,8 @@ export default function Analytics() {
           calorieTarget={targetStatus === "ready" ? calorieTarget : null}
         />
       </div>
+
+      <MacroDonut status={seriesStatus} row={todayRow} />
     </div>
   );
 }
