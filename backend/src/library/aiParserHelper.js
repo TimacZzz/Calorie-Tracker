@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { httpError } from "./httpError.js"; // match httpError.js's export style
+import { httpError } from "./httpError.js";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -23,36 +23,60 @@ const itemSchema = z
 
 const responseSchema = z.object({ items: z.array(itemSchema) }).strict();
 
+// One call to Groq. Returns the raw message content string.
+async function callModel(text, apiKey) {
+  let res;
+  try {
+    res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL,
+        response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 4000, // gpt-oss reasons first; reasoning tokens count against this
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: text }, // user text never goes in the system prompt
+        ],
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    if (err.name === "TimeoutError") throw httpError(504, "AI request timed out");
+    throw err;
+  }
+
+  // fetch does not reject on 4xx/5xx. Not retried: a bad key or model fails the same way twice.
+  if (!res.ok) throw httpError(502, `Groq ${res.status}: ${await res.text()}`);
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
+// Returns the items, or null if the content is not valid JSON of the right shape.
+function parseContent(content) {
+  let json;
+  try {
+    json = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  const parsed = responseSchema.safeParse(json);
+  return parsed.success ? parsed.data.items : null;
+}
+
 export async function parseFoodText(text) {
   const apiKey = process.env.GROQ_API_KEY; // read at call time, not import time
   if (!apiKey) throw httpError(503, "AI parsing is not configured");
 
-  const res = await fetch(GROQ_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.GROQ_MODEL,
-      response_format: { type: "json_object" },
-      temperature: 0,
-      max_tokens: 4000, // gpt-oss reasons first; reasoning tokens count against this
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: text }, // user text never goes in the system prompt
-      ],
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-
-  // fetch does not reject on 4xx/5xx — without this, a bad key looks like a schema failure
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
-
-  const data = await res.json();
-  const parsed = responseSchema.safeParse(
-    JSON.parse(data.choices[0].message.content)
-  );
-  if (!parsed.success) throw new Error("AI response did not match schema");
-  return parsed.data.items;
+  // Two attempts. Only bad output is retried; HTTP errors and timeouts throw immediately.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const items = parseContent(await callModel(text, apiKey));
+    if (items) return items;
+  }
+  throw httpError(502, "AI response could not be parsed");
 }
