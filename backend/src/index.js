@@ -5,6 +5,7 @@ import authRouter from "./routes/auth.js";
 import profileRouter from "./routes/profile.js";
 import entriesRouter from "./routes/entries.js";
 import analyticsRouter from "./routes/analytics.js"
+import aiRouter from "./routes/ai.js";
 import { getUserById } from "./library/authHelper.js";
 import cookieParser from "cookie-parser";
 import { requireAuth } from "./middleware/requireAuth.js";
@@ -20,6 +21,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/entries", entriesRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/ai", aiRouter);
 
 app.get("/api/me", requireAuth, async (req, res) => {
   const user = await getUserById(req.user.id);

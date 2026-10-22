@@ -1,0 +1,50 @@
+@host = http://localhost:3000
+
+### Login
+# paste the login request body from entries.rest here
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@outlook.com",
+  "password": "administrator"
+}
+
+### Parse: happy path
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{ "text": "two eggs and a slice of toast" }
+
+### Parse: no food → 200, items []
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{ "text": "hello how are you" }
+
+### Parse: blank text → 400
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{ "text": "   " }
+
+### Parse: extra field → 400
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{ "text": "an apple", "calories": 95 }
+
+### Parse: missing text → 400
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{}
+
+### Logout
+POST {{host}}/api/auth/logout
+
+### Parse: anonymous → 401
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
+{ "text": "an apple" }
