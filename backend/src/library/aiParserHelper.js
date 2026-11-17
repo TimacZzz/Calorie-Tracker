@@ -7,7 +7,7 @@ const SYSTEM_PROMPT = `You extract foods from a meal description.
 Respond with json only, in exactly this shape:
 {"items":[{"foodName":"scrambled egg","quantity":2,"unit":null}]}
 Rules:
-- foodName: a short, generic name for the food.
+- foodName: keep words that change what the food is (e.g. "black coffee", "whole wheat toast", "skim milk"). Leave out quantities, units and filler words like "some" or "a bit of".
 - quantity: a positive number. If none is stated, use 1.
 - unit: the unit the user said ("slice", "cup", "g"), or null if none.
 - Never include calories, macros, or any nutrition values.

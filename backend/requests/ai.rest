@@ -14,6 +14,12 @@ Content-Type: application/json
 POST {{host}}/api/ai/parse
 Content-Type: application/json
 
+{ "text": "200g of rice and a black coffee" }
+
+### Parse: happy path
+POST {{host}}/api/ai/parse
+Content-Type: application/json
+
 { "text": "two eggs and a slice of toast" }
 
 ### Parse: no food → 200, items []
